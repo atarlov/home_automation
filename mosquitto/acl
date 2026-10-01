@@ -1,0 +1,19 @@
+user api
+topic write netwatch/internal/proposal
+topic write netwatch/notify
+topic write netwatch/status
+
+user gateway
+topic read  netwatch/internal/proposal
+topic read  netwatch/decision
+topic write netwatch/proposal
+topic write netwatch/resolved
+topic write netwatch/heartbeat
+
+user esp32
+topic read  netwatch/status
+topic read  netwatch/notify
+topic read  netwatch/proposal
+topic read  netwatch/resolved
+topic read  netwatch/heartbeat
+topic write netwatch/decision

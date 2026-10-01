@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>T-Display S3 AMOLED — Netwatch mock</title>
+  <link rel="stylesheet" href="/display/style.css" />
+</head>
+<body>
+  <main class="page">
+    <header class="meta">
+      <h1 id="product">T-Display S3 AMOLED</h1>
+      <p class="sub">ESP32-S3R8 · RM67162 · capacitive touch · <span id="geom">240×536</span></p>
+      <p class="mqtt" id="mqtt">MQTT: …</p>
+    </header>
+
+    <section class="bezel" aria-label="AMOLED panel">
+      <div class="panel" id="panel" style="width:240px;height:536px">
+        <div class="chrome">
+          <span class="dot"></span>
+          <span class="mode" id="mode">offline</span>
+        </div>
+        <div class="lines" id="lines"></div>
+        <div class="buttons" id="buttons" hidden>
+          <button type="button" class="touch" id="btnA" data-decision="approve">Yes</button>
+          <button type="button" class="touch" id="btnB" data-decision="deny">No</button>
+        </div>
+        <p class="toast" id="toast" hidden></p>
+      </div>
+    </section>
+
+    <section class="controls" aria-label="Scenario controls">
+      <h2>Scenarios</h2>
+      <div class="row">
+        <button type="button" data-scenario="reset">Reset home</button>
+        <button type="button" data-scenario="arrive">Phone arrives</button>
+        <button type="button" data-scenario="unknown">Unknown client</button>
+        <button type="button" data-scenario="empty_heater">Empty + heater 1.8 kW</button>
+      </div>
+      <pre id="lab" class="lab"></pre>
+    </section>
+  </main>
+  <script src="/display/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+.env
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+mosquitto/passwd
+mosquitto/mosquitto.local.conf
+live-policy.yaml
+.DS_Store

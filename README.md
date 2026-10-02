@@ -67,12 +67,16 @@ Away 3h
 Hall light on
 ```
 
+<img src="docs/images/display-welcome-home.jpg" alt="The panel showing a coming-home greeting" width="320">
+
 A question. The left half of the panel approves, the right half denies:
 
 ```
 Heater still on
 Turn it off?
 ```
+
+<img src="docs/images/display-ask-heater.jpg" alt="The panel asking whether to turn off the heater, with Off and Leave buttons" width="320">
 
 The idle screen stays up between those moments. Every fifteen minutes, if nothing else happened, the agent looks again and rewrites it only when it should change. Notes it saves are still there the next day.
 

@@ -13,3 +13,4 @@ mosquitto/mosquitto.local.conf
 live-policy.yaml
 .DS_Store
 .pio/
+tmp/

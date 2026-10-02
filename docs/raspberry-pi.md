@@ -2,7 +2,7 @@
 
 Run the house agent on a Raspberry Pi that stays on the LAN. Power the LilyGO T-Display-S3 AMOLED from a charger and let it join the same Wi-Fi. The laptop is only for flashing the panel over USB.
 
-The Pi does not run the model. It calls hosted NVIDIA NIM, the same way this computer does. UniFi and Shelly stay on the LAN.
+The Pi does not run the model. It calls hosted NVIDIA NIM, the same way any other host does. UniFi and Shelly stay on the LAN.
 
 Today the panel speaks only USB serial. The broker, the passwords, and the topics below already exist. The work later is a Wi-Fi build of `firmware/display` and an MQTT link in the agent.
 

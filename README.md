@@ -2,7 +2,7 @@
 
 A long-running agent for the home. It notices when you come back, turns on the light you want on, and says so on the T-Display-S3 AMOLED by the door. While you are out it keeps watching the network and the plugs. You do not start it for each visit.
 
-UniFi is how it knows you are home: your phone leaves Wi-Fi and joins again after a real absence. Shelly plugs are the lights and appliances. NVIDIA is the session that decides. The S3, already plugged into this machine, is the only screen it has. A tap on that screen is the answer when something is not obvious.
+UniFi is how it knows you are home: your phone leaves Wi-Fi and joins again after a real absence. Shelly plugs are the lights and appliances. NVIDIA is the session that decides. The S3, plugged into the host, is the only screen it has. A tap on that screen is the answer when something is not obvious.
 
 Comfort is immediate. The hall light is marked so it may turn on without a tap. The fridge is marked so it is never offered as something to switch off. A heater left on, or a client the house has not seen before, is a question on the display. Approve and deny are signed, expire, and are written to the audit log. The model does not hold the UniFi or Shelly credentials. It proposes. The gateway is the only code that changes the network.
 
@@ -19,8 +19,6 @@ How to fill in keys and device rows is under [Connect UniFi, Shelly, and NIM](#c
 
 ### UniFi
 
-<img src="docs/images/unifi-gateway.jpg" alt="UniFi Cloud Gateway" width="180">
-
 UniFi is Ubiquiti's network controller, running on a console on the LAN (a Dream Machine, a Cloud Gateway, or the same software on your own host). This project uses the Network application's classic API under `/proxy/network/api/s/<site>/`, with an `X-API-KEY` header. The console certificate is often self-signed, and the client accepts that.
 
 The collector reads the active client list (`stat/sta`): name, VLAN, access point, and traffic counters. A phone you mark as `presence_device` is how the house knows you left and came back. That address stays in the database. The panel shows your name, not the address. The gateway is the only process with the write key. It can block or unblock a client, and it can create a guest voucher. Quarantine is a block for now.
@@ -33,7 +31,6 @@ The account can hold plugs, climate sensors, and a motion sensor. The panel draw
 
 | Plug | Climate | Motion |
 |---|---|---|
-| <img src="docs/images/shelly-plug.jpg" alt="Shelly plug" width="160"> | <img src="docs/images/shelly-climate.jpg" alt="Shelly temperature and humidity sensor" width="160"> | <img src="docs/images/shelly-motion.jpg" alt="Shelly motion sensor" width="160"> |
 | Switch and power | Temperature and humidity | Motion and light |
 
 Shelly plugs and relays switch a light or an appliance and report power. This project uses the [Shelly Cloud Control API](https://shelly-api-docs.shelly.cloud/cloud-control-api/) when `SHELLY_CLOUD_HOST` and `SHELLY_CLOUD_AUTH_KEY` are set. One `device/all_status` read covers every plug. Switching goes through `v2/devices/api/set/switch`. The cloud allows about one call per second. The collector polls every 30 seconds, so that limit is comfortable.
@@ -52,9 +49,7 @@ The face demos (`make face-greet`, `make face-ask`) do not call NIM. `make agent
 
 ### LilyGO T-Display-S3 AMOLED
 
-<img src="docs/images/lilygo-display.jpg" alt="LilyGO T-Display-S3 AMOLED in landscape, waiting face on the glass" width="220">
-
-The face is a [LilyGO T-Display-S3 AMOLED](https://lilygo.cc/products/t-display-s3-amoled), the capacitive-touch 1.91 inch board. The glass is an RM67162 panel, 240×536, on an ESP32-S3R8 with 16 MB flash and 8 MB PSRAM. Touch is a CST816T. The board on this desk is plugged in over USB-C. The firmware in `firmware/display` draws it landscape, so lines run along the long edge.
+The face is a [LilyGO T-Display-S3 AMOLED](https://lilygo.cc/products/t-display-s3-amoled), the capacitive-touch 1.91 inch board. The glass is an RM67162 panel, 240×536, on an ESP32-S3R8 with 16 MB flash and 8 MB PSRAM. Touch is a CST816T. The board is plugged in over USB-C. The firmware in `firmware/display` draws it landscape, so lines run along the long edge.
 
 With nothing to say, the screen is a waiting face that blinks. A message sits to the right of a smaller face, at most four lines of eighteen ASCII characters. In a question, a tap on the left half approves and a tap on the right half denies. The host protocol is one line at a time: `SHOW` out, `BTN` back, `HELLO` when the board boots.
 
@@ -109,7 +104,7 @@ The firmware brings the panel up, prints `HELLO T-Display-S3-AMOLED 536 240` on 
 
 ## Connect UniFi, Shelly, and NIM
 
-This machine has to reach the UniFi console and the plugs on the LAN, and it needs outbound HTTPS for NIM. The display stays on USB. MQTT is not part of this.
+The host has to reach the UniFi console and the plugs on the LAN, and it needs outbound HTTPS for NIM. The display stays on USB. MQTT is not part of this.
 
 ### UniFi
 
@@ -186,7 +181,7 @@ make agent
 
 ## Architecture
 
-The collector and the agent stay up on this computer. The agent calls the gateway in-process. Arrival greetings are built from the database. Other decisions go to NVIDIA NIM. The panel is a deck of cards on USB: swipe changes the card, a tap answers the one in front.
+The collector and the agent stay up on the host — a VM, a Pi, or a spare machine. The agent calls the gateway in-process. Arrival greetings are built from the database. Other decisions go to NVIDIA NIM. The panel is a deck of cards on USB: swipe changes the card, a tap answers the one in front.
 
 ```mermaid
 flowchart TB
@@ -204,7 +199,7 @@ flowchart TB
     NIM[NVIDIA NIM / Nemotron]
   end
 
-  subgraph host [This computer]
+  subgraph host [Host]
     Collector[collector.py]
     DB[(SQLite)]
     Agent[agent.py]

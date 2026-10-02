@@ -32,6 +32,7 @@ char mode[8] = "idle";
 char proposalId[32] = "";
 char buttonA[12] = "Yes";
 char buttonB[12] = "No";
+char pict[12] = "face";
 char lines[4][24] = {"", "", "", ""};
 char lastFrame[180] = "";
 
@@ -40,6 +41,7 @@ static const int MAX_CARDS = 4;
 struct Card {
     char mode[8];
     char id[32];
+    char pict[12];
     char buttonA[12];
     char buttonB[12];
     char lines[4][24];
@@ -117,6 +119,47 @@ void drawFace(int cx, int cy, int scale, bool open, int pupil) {
     drawSmile(cx, cy + (scale == 2 ? 16 : 10), scale == 2 ? 20 : 12);
 }
 
+void drawThermo() {
+    canvas->fillRoundRect(70, 40, 16, 52, 6, 0xF800);
+    canvas->fillCircle(78, 100, 16, 0xF800);
+    canvas->fillRect(74, 48, 8, 40, BLACK);
+}
+
+void drawPlug() {
+    canvas->fillRoundRect(58, 48, 40, 48, 6, 0x07E0);
+    canvas->fillRect(66, 28, 8, 22, 0xC618);
+    canvas->fillRect(82, 28, 8, 22, 0xC618);
+}
+
+void drawMotion() {
+    canvas->fillCircle(78, 48, 12, 0x07FF);
+    canvas->fillRoundRect(70, 62, 16, 28, 4, 0x07FF);
+    canvas->drawLine(70, 74, 52, 90, 0x07FF);
+    canvas->drawLine(86, 74, 104, 90, 0x07FF);
+    canvas->drawLine(74, 90, 64, 112, 0x07FF);
+    canvas->drawLine(82, 90, 94, 112, 0x07FF);
+}
+
+void drawLaptop() {
+    canvas->fillRoundRect(48, 40, 60, 40, 4, 0x5D7F);
+    canvas->fillRect(54, 46, 48, 28, 0x0018);
+    canvas->fillRoundRect(40, 82, 76, 8, 2, 0xC618);
+}
+
+void drawPict() {
+    if (strcmp(pict, "thermo") == 0) {
+        drawThermo();
+    } else if (strcmp(pict, "plug") == 0) {
+        drawPlug();
+    } else if (strcmp(pict, "motion") == 0) {
+        drawMotion();
+    } else if (strcmp(pict, "laptop") == 0) {
+        drawLaptop();
+    } else {
+        drawFace(78, 78, 1, true, 2);
+    }
+}
+
 void draw() {
     if (!canvas) {
         return;
@@ -126,7 +169,7 @@ void draw() {
     int pupil = message ? 2 : look;
     canvas->fillScreen(BLACK);
     if (message) {
-        drawFace(78, 78, 1, true, 2);
+        drawPict();
         canvas->setTextSize(3);
         canvas->setTextColor(0xFFFF);
         int y = 28;
@@ -208,6 +251,7 @@ void showCard(int index) {
     Card *card = &deck[index];
     copyField(mode, sizeof(mode), card->mode);
     copyField(proposalId, sizeof(proposalId), card->id);
+    copyField(pict, sizeof(pict), card->pict);
     copyField(buttonA, sizeof(buttonA), card->buttonA);
     copyField(buttonB, sizeof(buttonB), card->buttonB);
     for (int i = 0; i < 4; i++) {
@@ -217,16 +261,16 @@ void showCard(int index) {
 }
 
 void applyCard(char *body) {
-    char *fields[10];
+    char *fields[11];
     int count = 0;
     fields[count++] = body;
-    for (char *p = body; *p && count < 10; p++) {
+    for (char *p = body; *p && count < 11; p++) {
         if (*p == '|') {
             *p = 0;
             fields[count++] = p + 1;
         }
     }
-    if (count < 10) {
+    if (count < 11) {
         return;
     }
     int index = atoi(fields[0]);
@@ -241,10 +285,11 @@ void applyCard(char *body) {
     Card *card = &deck[index];
     copyField(card->mode, sizeof(card->mode), fields[2]);
     copyField(card->id, sizeof(card->id), fields[3]);
-    copyField(card->buttonA, sizeof(card->buttonA), fields[4][0] && strcmp(fields[4], "-") ? fields[4] : "Ok");
-    copyField(card->buttonB, sizeof(card->buttonB), fields[5][0] && strcmp(fields[5], "-") ? fields[5] : "Ok");
+    copyField(card->pict, sizeof(card->pict), fields[4][0] ? fields[4] : "face");
+    copyField(card->buttonA, sizeof(card->buttonA), fields[5][0] && strcmp(fields[5], "-") ? fields[5] : "Ok");
+    copyField(card->buttonB, sizeof(card->buttonB), fields[6][0] && strcmp(fields[6], "-") ? fields[6] : "Ok");
     for (int i = 0; i < 4; i++) {
-        copyField(card->lines[i], sizeof(card->lines[i]), fields[6 + i]);
+        copyField(card->lines[i], sizeof(card->lines[i]), fields[7 + i]);
     }
     if (strcmp(card->mode, "ask") != 0) {
         copyField(card->mode, sizeof(card->mode), "idle");

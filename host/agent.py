@@ -215,6 +215,32 @@ def greeting_lines(event):
 DISMISSED = set()
 
 
+def _looks_like_mac(text):
+    parts = str(text).split(":")
+    return len(parts) == 6 and all(len(part) == 2 for part in parts)
+
+
+def _device_label(details):
+    try:
+        data = json.loads(details or "{}")
+    except json.JSONDecodeError:
+        data = {}
+    name = data.get("hostname") or data.get("name") or ""
+    if not name or _looks_like_mac(name):
+        return "Computer"
+    return name
+
+
+def _pict_for(kind):
+    if kind == "ht":
+        return "thermo"
+    if kind == "motion":
+        return "motion"
+    if kind == "switch":
+        return "plug"
+    return "face"
+
+
 def suggestion_cards():
     """Offline sensors and plugs, plus a new device that is still pending."""
     cards = []
@@ -223,31 +249,41 @@ def suggestion_cards():
             "SELECT device_id, name, kind FROM shelly WHERE cloud_online=0 AND kind IN ('ht', 'switch', 'motion')"
         ).fetchall()
         pending = c.execute(
-            "SELECT mac, details FROM events WHERE type='new_client' AND status='pending' ORDER BY ts DESC LIMIT 2"
+            "SELECT e.id, e.details FROM events e "
+            "LEFT JOIN devices d ON d.mac=e.mac "
+            "WHERE e.type='new_client' AND e.status='pending' AND COALESCE(d.presence_device, 0)=0 "
+            "ORDER BY e.ts DESC LIMIT 2"
         ).fetchall()
     for row in offline:
         card_id = "sug_" + row["device_id"]
         if card_id in DISMISSED:
             continue
-        what = "sensor offline" if row["kind"] == "ht" else "plug offline"
+        if row["kind"] == "ht":
+            what = "sensor offline"
+        elif row["kind"] == "motion":
+            what = "motion offline"
+        else:
+            what = "plug offline"
         cards.append(
             {
                 "mode": "ask",
                 "id": card_id,
+                "pict": _pict_for(row["kind"]),
                 "lines": [row["name"], what],
                 "button_a": "Ok",
                 "button_b": "Ok",
             }
         )
     for row in pending:
-        card_id = "allow_" + row["mac"]
+        card_id = "allow_" + row["id"].removeprefix("evt_")
         if card_id in DISMISSED:
             continue
         cards.append(
             {
                 "mode": "ask",
                 "id": card_id,
-                "lines": ["New device", row["mac"]],
+                "pict": "laptop",
+                "lines": ["New device", _device_label(row["details"])],
                 "button_a": "Allow",
                 "button_b": "Skip",
             }
@@ -271,7 +307,7 @@ def room_card():
             bits.append(f"{room['humidity']:.0f}%")
         if bits:
             lines.append(" ".join(bits))
-    return {"mode": "idle", "id": "-", "lines": lines}
+    return {"mode": "idle", "id": "-", "pict": "thermo", "lines": lines}
 
 
 def live_deck(hello=None):
@@ -305,6 +341,7 @@ def greet_arrival(sink, event):
                     "mode": "ask",
                     "id": result["id"],
                     "lines": lines,
+                    "pict": "face",
                     "button_a": "Ok",
                     "button_b": "Ok",
                 }
@@ -370,13 +407,15 @@ def handle_button(sink, proposal_id, decision, now=None):
     if proposal_id.startswith("sug_") or proposal_id.startswith("allow_"):
         DISMISSED.add(proposal_id)
         if proposal_id.startswith("allow_") and decision == "approve":
-            mac = proposal_id[len("allow_") :]
+            event_id = "evt_" + proposal_id[len("allow_") :]
             with db.conn() as c:
-                c.execute("UPDATE devices SET trusted=1 WHERE mac=?", (mac,))
-                c.execute(
-                    "UPDATE events SET status='done' WHERE type='new_client' AND mac=? AND status!='done'",
-                    (mac,),
-                )
+                row = c.execute("SELECT mac FROM events WHERE id=?", (event_id,)).fetchone()
+                if row and row["mac"]:
+                    c.execute("UPDATE devices SET trusted=1 WHERE mac=?", (row["mac"],))
+                    c.execute(
+                        "UPDATE events SET status='done' WHERE id=? AND status!='done'",
+                        (event_id,),
+                    )
         publish_deck(sink, live_deck())
         return "acked"
     now = time.time() if now is None else now

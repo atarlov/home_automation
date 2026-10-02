@@ -19,13 +19,22 @@ How to fill in keys and device rows is under [Connect UniFi, Shelly, and NIM](#c
 
 ### UniFi
 
+<img src="docs/images/unifi-gateway.jpg" alt="UniFi Cloud Gateway" width="180">
+
 UniFi is Ubiquiti's network controller, running on a console on the LAN (a Dream Machine, a Cloud Gateway, or the same software on your own host). This project uses the Network application's classic API under `/proxy/network/api/s/<site>/`, with an `X-API-KEY` header. The console certificate is often self-signed, and the client accepts that.
 
-The collector reads the active client list (`stat/sta`): MAC, name, VLAN, access point, and traffic counters. A phone you mark as `presence_device` is how the house knows you left and came back. The gateway is the only process with the write key. It can block or unblock a client, and it can create a guest voucher. Quarantine is a block for now.
+The collector reads the active client list (`stat/sta`): name, VLAN, access point, and traffic counters. A phone you mark as `presence_device` is how the house knows you left and came back. That address stays in the database. The panel shows your name, not the address. The gateway is the only process with the write key. It can block or unblock a client, and it can create a guest voucher. Quarantine is a block for now.
 
 Keys are created on the console under Settings → Control Plane → Integrations. The read key stays with the collector. The write key stays with the gateway.
 
 ### Shelly
+
+The account can hold plugs, climate sensors, and a motion sensor. The panel draws a matching picture on each card: a thermometer, a plug, or a small figure.
+
+| Plug | Climate | Motion |
+|---|---|---|
+| <img src="docs/images/shelly-plug.jpg" alt="Shelly plug" width="160"> | <img src="docs/images/shelly-climate.jpg" alt="Shelly temperature and humidity sensor" width="160"> | <img src="docs/images/shelly-motion.jpg" alt="Shelly motion sensor" width="160"> |
+| Switch and power | Temperature and humidity | Motion and light |
 
 Shelly plugs and relays switch a light or an appliance and report power. This project uses the [Shelly Cloud Control API](https://shelly-api-docs.shelly.cloud/cloud-control-api/) when `SHELLY_CLOUD_HOST` and `SHELLY_CLOUD_AUTH_KEY` are set. One `device/all_status` read covers every plug. Switching goes through `v2/devices/api/set/switch`. The cloud allows about one call per second. The collector polls every 30 seconds, so that limit is comfortable.
 
@@ -42,6 +51,8 @@ Each turn sends the pending events and a snapshot of the house. NIM may call `sh
 The face demos (`make face-greet`, `make face-ask`) do not call NIM. `make agent` does.
 
 ### LilyGO T-Display-S3 AMOLED
+
+<img src="docs/images/lilygo-display.jpg" alt="LilyGO T-Display-S3 AMOLED in landscape, waiting face on the glass" width="220">
 
 The face is a [LilyGO T-Display-S3 AMOLED](https://lilygo.cc/products/t-display-s3-amoled), the capacitive-touch 1.91 inch board. The glass is an RM67162 panel, 240×536, on an ESP32-S3R8 with 16 MB flash and 8 MB PSRAM. Touch is a CST816T. The board on this desk is plugged in over USB-C. The firmware in `firmware/display` draws it landscape, so lines run along the long edge.
 
@@ -120,7 +131,7 @@ INSERT INTO people(id, name) VALUES(1, 'Assen');
 
 UPDATE devices
 SET person_id = 1, presence_device = 1, trusted = 1, friendly_name = 'Phone'
-WHERE mac = 'aa:bb:cc:dd:ee:ff';
+WHERE hostname = 'iPhone';
 ```
 
 ### Shelly

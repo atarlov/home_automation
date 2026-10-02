@@ -69,6 +69,7 @@ class DisplayLink:
                 card.get("id"),
                 card.get("button_a"),
                 card.get("button_b"),
+                card.get("pict") or "face",
             )
             self._write_line(line)
 

@@ -98,9 +98,42 @@ class AgentCase(unittest.TestCase):
         self.assertEqual(completion.tool_calls[0].name, "show")
         self.assertEqual(completion.tool_calls[0].arguments["lines"], ["Quiet night"])
 
+    def test_arrival_says_hello_and_waits_for_a_tap(self):
+        with db.conn() as c:
+            c.execute("INSERT INTO people(id, name) VALUES(1, 'Assen')")
+            c.execute(
+                "INSERT INTO devices(mac, friendly_name, person_id, presence_device) VALUES(?,?,1,1)",
+                (MAC, "Assen iPhone"),
+            )
+        with db.conn() as c:
+            c.execute(
+                "INSERT INTO shelly(device_id, name, kind, temp_c, humidity, cloud_online) "
+                "VALUES('ht1','Living Room','ht',22.1,67,1)"
+            )
+            c.execute(
+                "INSERT INTO shelly(device_id, name, kind, motion, lux, cloud_online) "
+                "VALUES('mot1','Motion','motion',0,110,1)"
+            )
+        event_id = self._event("arrival", mac=MAC, details={"away_min": 2})
+        sink = Sink()
+        outcome = agent.run_turn(ScriptModel([]), sink)
+        self.assertEqual(outcome["content"], "Hello")
+        shown = " ".join(sink.frames)
+        self.assertIn("Hello Assen", shown)
+        self.assertIn("Living Room", shown)
+        self.assertIn("22C 67%", shown)
+        self.assertIn("No motion 110lx", shown)
+        self.assertTrue(any(frame.startswith("SHOW ask|") for frame in sink.frames))
+        proposal_id = sink.frames[0].split("|")[1]
+        with patch.object(agent.gateway, "execute", lambda *a, **k: (_ for _ in ()).throw(AssertionError("ran"))):
+            status = agent.handle_button(sink, proposal_id, "deny")
+        self.assertEqual(status, "acked")
+        self.assertTrue(sink.frames[-1].startswith("SHOW idle|"))
+        self.assertNotIn("Hello Assen", sink.frames[-1])
+
     def test_arrival_turns_the_comfort_light_on_and_greets(self):
         self._hall()
-        event_id = self._event("arrival", mac=MAC, details={"away_min": 180})
+        event_id = self._event("shelly_power", mac=MAC, details={"away_min": 180})
         model = ScriptModel(
             [
                 Completion(

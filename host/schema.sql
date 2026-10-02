@@ -33,6 +33,12 @@ CREATE TABLE IF NOT EXISTS shelly (
   on_state INTEGER, power_w REAL, idle_w REAL,
   never_switch_off INTEGER DEFAULT 0,
   comfort_auto INTEGER DEFAULT 0,             -- may be switched ON without approval
+  temp_c REAL,
+  humidity REAL,
+  lux REAL,
+  motion INTEGER,
+  battery REAL,
+  cloud_online INTEGER,
   updated TEXT
 );
 

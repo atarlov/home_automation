@@ -62,12 +62,12 @@ The panel is 240×536, drawn landscape so words run along the long edge. With no
 Coming home:
 
 ```
-Welcome home Assen
+Welcome home
 Away 3h
 Hall light on
 ```
 
-<img src="docs/images/display-welcome-home.jpg" alt="The panel showing a coming-home greeting" width="320">
+![The panel showing a coming-home greeting](docs/images/display-welcome-home.jpg)
 
 A question. The left half of the panel approves, the right half denies:
 
@@ -76,17 +76,15 @@ Heater still on
 Turn it off?
 ```
 
-<img src="docs/images/display-ask-heater.jpg" alt="The panel asking whether to turn off the heater, with Off and Leave buttons" width="320">
+![The panel asking whether to turn off the heater, with Off and Leave buttons](docs/images/display-ask-heater.jpg)
 
-The idle screen stays up between those moments. Every fifteen minutes, if nothing else happened, the agent looks again and rewrites it only when it should change. Notes it saves are still there the next day.
-
-A few more cards from the panel, including the ones `tmp/display_showcase.py` makes up when nothing real is going on:
+A few more cards from the display
 
 | | | |
 |---|---|---|
-| <img src="docs/images/display-climate.jpg" alt="The panel showing living room temperature and humidity" width="220"> | <img src="docs/images/display-motion.jpg" alt="The panel showing motion and lux" width="220"> | <img src="docs/images/display-new-device.jpg" alt="The panel asking to allow or skip a new device, an iPhone 15" width="220"> |
+| ![The panel showing living room temperature and humidity](docs/images/display-climate.jpg) | ![The panel showing motion and lux](docs/images/display-motion.jpg) | ![The panel asking to allow or skip a new device, an iPhone 15](docs/images/display-new-device.jpg) |
 | Living room, 21C 44% | Motion, 180lx | A new iPhone 15 on the network |
-| <img src="docs/images/display-occupied.jpg" alt="The panel joking that the house is occupied by Assen and a toaster" width="220"> | <img src="docs/images/display-motion-joke.jpg" alt="The panel joking that motion was probably the cat" width="220"> | <img src="docs/images/display-fridge.jpg" alt="The panel joking that the fridge is still judging you" width="220"> |
+| ![The panel joking that the house is occupied by Assen and a toaster](docs/images/display-occupied.jpg) | ![The panel joking that motion was probably the cat](docs/images/display-motion-joke.jpg) | ![The panel joking that the fridge is still judging you](docs/images/display-fridge.jpg) |
 | House occupied by Assen + a toaster | Something moved, probably the cat | The fridge, still judging you |
 
 ## Run it

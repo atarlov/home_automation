@@ -17,6 +17,7 @@ _ACTIONS = {
     "unblock_client",
     "shelly_switch",
     "guest_voucher",
+    "acknowledge",
 }
 
 
@@ -85,14 +86,22 @@ def snapshot():
             {
                 "device_id": row["device_id"],
                 "name": row["name"],
-                "on": bool(row["on_state"]),
+                "kind": row["kind"],
+                "on": None if row["on_state"] is None else bool(row["on_state"]),
                 "power_w": row["power_w"],
                 "idle_w": row["idle_w"],
+                "temp_c": row["temp_c"],
+                "humidity": row["humidity"],
+                "lux": row["lux"],
+                "motion": None if row["motion"] is None else bool(row["motion"]),
+                "battery": row["battery"],
+                "online": None if row["cloud_online"] is None else bool(row["cloud_online"]),
                 "comfort_auto": bool(row["comfort_auto"]),
                 "never_switch_off": bool(row["never_switch_off"]),
             }
             for row in c.execute(
-                "SELECT device_id, name, on_state, power_w, idle_w, comfort_auto, never_switch_off FROM shelly"
+                "SELECT device_id, name, kind, on_state, power_w, idle_w, temp_c, humidity, lux, motion, "
+                "battery, cloud_online, comfort_auto, never_switch_off FROM shelly"
             )
         ]
         online = [
@@ -195,7 +204,7 @@ def propose(event_id, action, lines, button_a="Yes", button_b="No", sink=None):
                 json.dumps({"type": kind, "params": params}),
                 ev["type"],
                 json.dumps(oled),
-                time.time() + int(os.environ.get("PROPOSAL_TTL_SEC", 120)),
+                time.time() + (7 * 24 * 3600 if kind == "acknowledge" else int(os.environ.get("PROPOSAL_TTL_SEC", 120))),
             ),
         )
         c.execute("UPDATE events SET status='done' WHERE id=?", (event_id,))
@@ -221,13 +230,17 @@ def _check_action(kind, params):
             return "shelly_switch requires boolean on"
         with db.conn() as c:
             row = c.execute(
-                "SELECT never_switch_off FROM shelly WHERE device_id=?",
+                "SELECT never_switch_off, kind FROM shelly WHERE device_id=?",
                 (device_id,),
             ).fetchone()
         if not row:
             return "unknown shelly"
+        if row["kind"] in ("ht", "motion"):
+            return "not a switch"
         if params["on"] is False and row["never_switch_off"]:
             return "never_switch_off"
+        return None
+    if kind == "acknowledge":
         return None
     if kind == "guest_voucher":
         try:

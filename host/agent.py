@@ -161,18 +161,176 @@ def _assistant_message(completion):
     return message
 
 
+def hello_line(event):
+    name = "Assen"
+    mac = event.get("mac")
+    if mac:
+        with db.conn() as c:
+            row = c.execute(
+                "SELECT p.name FROM devices d JOIN people p ON p.id=d.person_id WHERE d.mac=?",
+                (mac,),
+            ).fetchone()
+            if row and row["name"]:
+                name = row["name"]
+    return f"Hello {name}"
+
+
+def _short(text):
+    return " ".join(str(text).split())[:18]
+
+
+def greeting_lines(event):
+    """Hello, plus the newest room climate and motion. Four lines, eighteen characters."""
+    lines = [_short(hello_line(event))]
+    with db.conn() as c:
+        room = c.execute(
+            "SELECT name, temp_c, humidity FROM shelly WHERE kind='ht' AND temp_c IS NOT NULL "
+            "ORDER BY cloud_online DESC, updated DESC LIMIT 1"
+        ).fetchone()
+        motion = c.execute(
+            "SELECT motion, lux FROM shelly WHERE kind='motion' ORDER BY cloud_online DESC, updated DESC LIMIT 1"
+        ).fetchone()
+    if room:
+        lines.append(_short(room["name"]))
+        climate = []
+        if room["temp_c"] is not None:
+            climate.append(f"{room['temp_c']:.0f}C")
+        if room["humidity"] is not None:
+            climate.append(f"{room['humidity']:.0f}%")
+        if climate:
+            lines.append(_short(" ".join(climate)))
+    if motion and len(lines) < 4:
+        if motion["motion"]:
+            line = "Motion"
+        else:
+            line = "No motion"
+        if motion["lux"] is not None:
+            extra = f" {int(motion['lux'])}lx"
+            if len(line) + len(extra) <= 18:
+                line += extra
+        lines.append(_short(line))
+    return lines[:4]
+
+
+DISMISSED = set()
+
+
+def suggestion_cards():
+    """Offline sensors and plugs, plus a new device that is still pending."""
+    cards = []
+    with db.conn() as c:
+        offline = c.execute(
+            "SELECT device_id, name, kind FROM shelly WHERE cloud_online=0 AND kind IN ('ht', 'switch', 'motion')"
+        ).fetchall()
+        pending = c.execute(
+            "SELECT mac, details FROM events WHERE type='new_client' AND status='pending' ORDER BY ts DESC LIMIT 2"
+        ).fetchall()
+    for row in offline:
+        card_id = "sug_" + row["device_id"]
+        if card_id in DISMISSED:
+            continue
+        what = "sensor offline" if row["kind"] == "ht" else "plug offline"
+        cards.append(
+            {
+                "mode": "ask",
+                "id": card_id,
+                "lines": [row["name"], what],
+                "button_a": "Ok",
+                "button_b": "Ok",
+            }
+        )
+    for row in pending:
+        card_id = "allow_" + row["mac"]
+        if card_id in DISMISSED:
+            continue
+        cards.append(
+            {
+                "mode": "ask",
+                "id": card_id,
+                "lines": ["New device", row["mac"]],
+                "button_a": "Allow",
+                "button_b": "Skip",
+            }
+        )
+    return cards
+
+
+def room_card():
+    lines = []
+    with db.conn() as c:
+        room = c.execute(
+            "SELECT name, temp_c, humidity FROM shelly WHERE kind='ht' AND temp_c IS NOT NULL "
+            "ORDER BY cloud_online DESC, updated DESC LIMIT 1"
+        ).fetchone()
+    if room:
+        lines.append(room["name"])
+        bits = []
+        if room["temp_c"] is not None:
+            bits.append(f"{room['temp_c']:.0f}C")
+        if room["humidity"] is not None:
+            bits.append(f"{room['humidity']:.0f}%")
+        if bits:
+            lines.append(" ".join(bits))
+    return {"mode": "idle", "id": "-", "lines": lines}
+
+
+def live_deck(hello=None):
+    cards = [hello] if hello else [room_card()]
+    cards.extend(suggestion_cards())
+    return cards[:4]
+
+
+def publish_deck(sink, cards):
+    send = getattr(sink, "send_deck", None)
+    if send:
+        send(cards)
+
+
+def greet_arrival(sink, event):
+    """Show the greeting and leave it up until either side of the glass is tapped."""
+    lines = greeting_lines(event)
+    result = house.propose(
+        event["id"],
+        {"type": "acknowledge", "params": {}},
+        lines,
+        "Ok",
+        "Ok",
+        sink,
+    )
+    if result.get("id"):
+        publish_deck(
+            sink,
+            live_deck(
+                {
+                    "mode": "ask",
+                    "id": result["id"],
+                    "lines": lines,
+                    "button_a": "Ok",
+                    "button_b": "Ok",
+                }
+            ),
+        )
+    return result
+
+
 def run_turn(model, sink, *, quiet=False):
     ready = getattr(model, "ensure_ready", None)
+    events = [] if quiet else house.claim_pending()
+    arrivals = [event for event in events if event["type"] == "arrival"]
+    rest = [event for event in events if event["type"] != "arrival"]
+    for event in arrivals:
+        greet_arrival(sink, event)
+    event_ids = [event["id"] for event in rest]
+    if not rest and not quiet:
+        if arrivals:
+            return {"content": "Hello", "events": [event["id"] for event in arrivals]}
+        return {"skipped": True}
     if ready:
         ready()
-    events = [] if quiet else house.claim_pending()
-    event_ids = [event["id"] for event in events]
-    if not events and not quiet:
-        return {"skipped": True}
     try:
         messages = [
             {"role": "system", "content": SYSTEM},
-            {"role": "user", "content": _user_message(events, house.snapshot())},
+            {"role": "user", "content": _user_message(rest, house.snapshot())},
         ]
         content = None
         for _ in range(6):
@@ -208,10 +366,28 @@ def sign_decision(proposal_id, decision, ts=None):
 def handle_button(sink, proposal_id, decision, now=None):
     if decision not in ("approve", "deny"):
         return "rejected"
+    proposal_id = str(proposal_id)
+    if proposal_id.startswith("sug_") or proposal_id.startswith("allow_"):
+        DISMISSED.add(proposal_id)
+        if proposal_id.startswith("allow_") and decision == "approve":
+            mac = proposal_id[len("allow_") :]
+            with db.conn() as c:
+                c.execute("UPDATE devices SET trusted=1 WHERE mac=?", (mac,))
+                c.execute(
+                    "UPDATE events SET status='done' WHERE type='new_client' AND mac=? AND status!='done'",
+                    (mac,),
+                )
+        publish_deck(sink, live_deck())
+        return "acked"
     now = time.time() if now is None else now
     with db.conn() as c:
         status = gateway.process_decision(c, sign_decision(proposal_id, decision, ts=int(now)), now=now)
     if status == "rejected":
+        return status
+    if status == "acked":
+        sink.publish("netwatch/resolved", json.dumps({"id": proposal_id, "status": "acked"}))
+        sink.publish("netwatch/status", json.dumps({"lines": []}))
+        publish_deck(sink, live_deck())
         return status
     sink.publish("netwatch/resolved", json.dumps({"id": proposal_id, "status": status}))
     if status == "executed":
@@ -237,7 +413,7 @@ def main():
     link = DisplayLink()
     link.open()
     time.sleep(1)
-    link.publish("netwatch/status", json.dumps({"lines": []}))
+    link.send_deck(live_deck())
     model = NvidiaModel()
     quiet_sec = int(os.environ.get("AGENT_QUIET_SEC", 900))
     last_quiet = time.time()

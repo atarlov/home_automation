@@ -8,7 +8,7 @@ Prefer /dev/tty.* and keep DTR and RTS low so a tap can be read.
 import os
 import time
 
-from face import Face, parse_device_line
+from face import Face, encode_card, parse_device_line
 
 
 def default_port():
@@ -57,16 +57,34 @@ class DisplayLink:
         print(f"display open {self.port_name}", flush=True)
         return True
 
-    def publish(self, topic, payload, qos=0, retain=False):
-        line = self.face.apply(topic, payload)
-        if not line:
-            return
+    def send_deck(self, cards):
+        cards = list(cards)[:4] or [{"mode": "idle", "lines": []}]
+        count = len(cards)
+        for index, card in enumerate(cards):
+            line = encode_card(
+                index,
+                count,
+                card.get("mode") or "idle",
+                card.get("lines") or [],
+                card.get("id"),
+                card.get("button_a"),
+                card.get("button_b"),
+            )
+            self._write_line(line)
+
+    def _write_line(self, line):
         if self._ser is None and not self.open():
             return
         try:
             self._ser.write((line + "\n").encode())
         except OSError as exc:
             self._drop(exc)
+
+    def publish(self, topic, payload, qos=0, retain=False):
+        line = self.face.apply(topic, payload)
+        if not line:
+            return
+        self._write_line(line)
 
     def poll(self):
         if self._ser is None:

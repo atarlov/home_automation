@@ -166,29 +166,61 @@ def check_presence(c):
         db.emit(c, "house_empty", "system", device_id="house", cooldown_min=12 * 60)
 
 
+def _apply_shelly_status(c, row, state, empty):
+    on_state = None if state.get("on") is None else int(bool(state["on"]))
+    online = state.get("online")
+    c.execute(
+        "UPDATE shelly SET on_state=?, power_w=?, temp_c=?, humidity=?, lux=?, motion=?, battery=?, "
+        "cloud_online=?, updated=? WHERE device_id=?",
+        (
+            on_state,
+            state.get("power_w"),
+            state.get("temp_c"),
+            state.get("humidity"),
+            state.get("lux"),
+            state.get("motion"),
+            state.get("battery"),
+            None if online is None else int(bool(online)),
+            db.now_iso(),
+            row["device_id"],
+        ),
+    )
+    power = state.get("power_w") or 0
+    idle = row["idle_w"] or 1
+    if empty and state.get("on") and not row["never_switch_off"] and power > max(20, 5 * idle):
+        db.emit(
+            c,
+            "shelly_power",
+            "shelly",
+            device_id=row["device_id"],
+            cooldown_min=120,
+            details={"power_w": state["power_w"], "idle_w": row["idle_w"], "name": row["name"]},
+        )
+
+
 def poll_shelly(c):
     empty = house_is_empty(c)
-    for s in c.execute("SELECT * FROM shelly").fetchall():
+    rows = c.execute("SELECT * FROM shelly").fetchall()
+    cloud = {}
+    if shelly.cloud_enabled() and rows:
         try:
-            st = shelly.status(s["ip"])
+            cloud = shelly.cloud_all_status()
         except Exception as e:
-            db.audit(c, "collector", "shelly_unreachable", {"device_id": s["device_id"], "err": str(e)})
+            db.audit(c, "collector", "shelly_cloud_error", {"err": str(e)[:300]})
+            return
+    for row in rows:
+        try:
+            if shelly.cloud_enabled():
+                state = cloud.get(str(row["device_id"]))
+                if not state:
+                    raise shelly.ShellyCloudError(f"no cloud status for {row['device_id']}")
+                st = state
+            else:
+                st = shelly.status(row["ip"])
+        except Exception as e:
+            db.audit(c, "collector", "shelly_unreachable", {"device_id": row["device_id"], "err": str(e)[:300]})
             continue
-        c.execute(
-            "UPDATE shelly SET on_state=?, power_w=?, updated=? WHERE device_id=?",
-            (int(bool(st["on"])), st["power_w"], db.now_iso(), s["device_id"]),
-        )
-        power = st["power_w"] or 0
-        idle = s["idle_w"] or 1
-        if empty and st["on"] and not s["never_switch_off"] and power > max(20, 5 * idle):
-            db.emit(
-                c,
-                "shelly_power",
-                "shelly",
-                device_id=s["device_id"],
-                cooldown_min=120,
-                details={"power_w": st["power_w"], "idle_w": s["idle_w"], "name": s["name"]},
-            )
+        _apply_shelly_status(c, row, st, empty)
 
 
 def main():

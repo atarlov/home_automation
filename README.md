@@ -280,7 +280,7 @@ A client the house has not enrolled becomes `new_client`. The panel gets an Allo
 
 Mosquitto is the browser simulator, and a later S3 build that sits on Wi-Fi instead of this cable. The attached panel does not need it. `make face-idle`, `make face-greet`, and `make face-ask` drive that panel with no UniFi, Shelly, or NIM.
 
-Next steps: 
+### Next steps: 
 
-- Moving the agent to a Raspberry Pi and the panel onto Wi-Fi (it has BR and WiFi)
+- Moving the agent to a Raspberry Pi and the panel onto Wi-Fi (it has BT and WiFi)
 

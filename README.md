@@ -282,5 +282,5 @@ Mosquitto is the browser simulator, and a later S3 build that sits on Wi-Fi inst
 
 Next steps: 
 
-- Moving the agent to a Raspberry Pi and the panel onto Wi-Fi  (docs/raspberry-pi.md)
+- Moving the agent to a Raspberry Pi and the panel onto Wi-Fi (it has BR and WiFi)
 

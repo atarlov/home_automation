@@ -80,6 +80,15 @@ Turn it off?
 
 The idle screen stays up between those moments. Every fifteen minutes, if nothing else happened, the agent looks again and rewrites it only when it should change. Notes it saves are still there the next day.
 
+A few more cards from the panel, including the ones `tmp/display_showcase.py` makes up when nothing real is going on:
+
+| | | |
+|---|---|---|
+| <img src="docs/images/display-climate.jpg" alt="The panel showing living room temperature and humidity" width="220"> | <img src="docs/images/display-motion.jpg" alt="The panel showing motion and lux" width="220"> | <img src="docs/images/display-new-device.jpg" alt="The panel asking to allow or skip a new device, an iPhone 15" width="220"> |
+| Living room, 21C 44% | Motion, 180lx | A new iPhone 15 on the network |
+| <img src="docs/images/display-occupied.jpg" alt="The panel joking that the house is occupied by Assen and a toaster" width="220"> | <img src="docs/images/display-motion-joke.jpg" alt="The panel joking that motion was probably the cat" width="220"> | <img src="docs/images/display-fridge.jpg" alt="The panel joking that the fridge is still judging you" width="220"> |
+| House occupied by Assen + a toaster | Something moved, probably the cat | The fridge, still judging you |
+
 ## Run it
 
 ```bash

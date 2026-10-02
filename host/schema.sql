@@ -68,3 +68,10 @@ CREATE TABLE IF NOT EXISTS memory_notes (
 CREATE TABLE IF NOT EXISTS audit (
   id INTEGER PRIMARY KEY, ts TEXT, actor TEXT, what TEXT, detail TEXT
 );
+
+CREATE TABLE IF NOT EXISTS agent_turns (
+  id INTEGER PRIMARY KEY,
+  ts TEXT,
+  kind TEXT,
+  content TEXT
+);

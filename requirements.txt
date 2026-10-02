@@ -4,3 +4,4 @@ uvicorn
 pydantic>=2
 paho-mqtt>=2.1
 python-dotenv
+pyserial

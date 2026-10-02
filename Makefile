@@ -1,4 +1,4 @@
-.PHONY: test init-db bootstrap api collector gateway mock ensure-venv
+.PHONY: test init-db bootstrap api collector gateway agent display mock face-idle face-greet face-ask ensure-venv
 
 VENV_PYTHON := .venv/bin/python
 
@@ -26,5 +26,14 @@ collector:
 gateway:
 	python3 host/gateway.py
 
+agent: ensure-venv
+	$(VENV_PYTHON) host/agent.py
+
+display: ensure-venv
+	$(VENV_PYTHON) -m platformio run -d firmware/display -t upload --upload-port /dev/cu.usbmodem3101
+
 mock: ensure-venv
 	$(VENV_PYTHON) tools/mock_lab.py
+
+face-idle face-greet face-ask: ensure-venv
+	$(VENV_PYTHON) tools/face_demo.py $(subst face-,,$@)

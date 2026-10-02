@@ -11,6 +11,7 @@
 //   PONG
 
 #include <Arduino.h>
+#include <stdlib.h>
 #include <string.h>
 #include <Arduino_GFX_Library.h>
 #include <Wire.h>
@@ -31,8 +32,28 @@ char mode[8] = "idle";
 char proposalId[32] = "";
 char buttonA[12] = "Yes";
 char buttonB[12] = "No";
+char pict[12] = "face";
 char lines[4][24] = {"", "", "", ""};
 char lastFrame[180] = "";
+
+static const int MAX_CARDS = 4;
+
+struct Card {
+    char mode[8];
+    char id[32];
+    char pict[12];
+    char buttonA[12];
+    char buttonB[12];
+    char lines[4][24];
+};
+
+Card deck[MAX_CARDS];
+int deckCount = 0;
+int deckIndex = 0;
+bool fingerDown = false;
+int16_t originX = 0;
+int16_t lastX = 0;
+uint32_t originMs = 0;
 volatile bool homePressed = false;
 uint32_t lastTapMs = 0;
 bool eyesOpen = true;
@@ -98,6 +119,47 @@ void drawFace(int cx, int cy, int scale, bool open, int pupil) {
     drawSmile(cx, cy + (scale == 2 ? 16 : 10), scale == 2 ? 20 : 12);
 }
 
+void drawThermo() {
+    canvas->fillRoundRect(70, 40, 16, 52, 6, 0xF800);
+    canvas->fillCircle(78, 100, 16, 0xF800);
+    canvas->fillRect(74, 48, 8, 40, BLACK);
+}
+
+void drawPlug() {
+    canvas->fillRoundRect(58, 48, 40, 48, 6, 0x07E0);
+    canvas->fillRect(66, 28, 8, 22, 0xC618);
+    canvas->fillRect(82, 28, 8, 22, 0xC618);
+}
+
+void drawMotion() {
+    canvas->fillCircle(78, 48, 12, 0x07FF);
+    canvas->fillRoundRect(70, 62, 16, 28, 4, 0x07FF);
+    canvas->drawLine(70, 74, 52, 90, 0x07FF);
+    canvas->drawLine(86, 74, 104, 90, 0x07FF);
+    canvas->drawLine(74, 90, 64, 112, 0x07FF);
+    canvas->drawLine(82, 90, 94, 112, 0x07FF);
+}
+
+void drawLaptop() {
+    canvas->fillRoundRect(48, 40, 60, 40, 4, 0x5D7F);
+    canvas->fillRect(54, 46, 48, 28, 0x0018);
+    canvas->fillRoundRect(40, 82, 76, 8, 2, 0xC618);
+}
+
+void drawPict() {
+    if (strcmp(pict, "thermo") == 0) {
+        drawThermo();
+    } else if (strcmp(pict, "plug") == 0) {
+        drawPlug();
+    } else if (strcmp(pict, "motion") == 0) {
+        drawMotion();
+    } else if (strcmp(pict, "laptop") == 0) {
+        drawLaptop();
+    } else {
+        drawFace(78, 78, 1, true, 2);
+    }
+}
+
 void draw() {
     if (!canvas) {
         return;
@@ -107,7 +169,7 @@ void draw() {
     int pupil = message ? 2 : look;
     canvas->fillScreen(BLACK);
     if (message) {
-        drawFace(78, 78, 1, true, 2);
+        drawPict();
         canvas->setTextSize(3);
         canvas->setTextColor(0xFFFF);
         int y = 28;
@@ -121,6 +183,12 @@ void draw() {
         }
     } else {
         drawFace(VIEW_W / 2, VIEW_H / 2 - 4, 2, open, pupil);
+    }
+    if (deckCount > 1) {
+        canvas->setTextSize(2);
+        canvas->setTextColor(0x7BEF);
+        canvas->setCursor(450, 8);
+        canvas->printf("%d/%d", deckIndex + 1, deckCount);
     }
     if (strcmp(mode, "ask") == 0) {
         canvas->fillRoundRect(16, 176, 244, 50, 10, 0x0320);
@@ -175,8 +243,69 @@ void applyShow(char *body) {
     draw();
 }
 
+void showCard(int index) {
+    if (index < 0 || index >= deckCount) {
+        return;
+    }
+    deckIndex = index;
+    Card *card = &deck[index];
+    copyField(mode, sizeof(mode), card->mode);
+    copyField(proposalId, sizeof(proposalId), card->id);
+    copyField(pict, sizeof(pict), card->pict);
+    copyField(buttonA, sizeof(buttonA), card->buttonA);
+    copyField(buttonB, sizeof(buttonB), card->buttonB);
+    for (int i = 0; i < 4; i++) {
+        copyField(lines[i], sizeof(lines[i]), card->lines[i]);
+    }
+    draw();
+}
+
+void applyCard(char *body) {
+    char *fields[11];
+    int count = 0;
+    fields[count++] = body;
+    for (char *p = body; *p && count < 11; p++) {
+        if (*p == '|') {
+            *p = 0;
+            fields[count++] = p + 1;
+        }
+    }
+    if (count < 11) {
+        return;
+    }
+    int index = atoi(fields[0]);
+    int total = atoi(fields[1]);
+    if (total < 1 || total > MAX_CARDS || index < 0 || index >= total) {
+        return;
+    }
+    if (index == 0) {
+        deckCount = total;
+        deckIndex = 0;
+    }
+    Card *card = &deck[index];
+    copyField(card->mode, sizeof(card->mode), fields[2]);
+    copyField(card->id, sizeof(card->id), fields[3]);
+    copyField(card->pict, sizeof(card->pict), fields[4][0] ? fields[4] : "face");
+    copyField(card->buttonA, sizeof(card->buttonA), fields[5][0] && strcmp(fields[5], "-") ? fields[5] : "Ok");
+    copyField(card->buttonB, sizeof(card->buttonB), fields[6][0] && strcmp(fields[6], "-") ? fields[6] : "Ok");
+    for (int i = 0; i < 4; i++) {
+        copyField(card->lines[i], sizeof(card->lines[i]), fields[7 + i]);
+    }
+    if (strcmp(card->mode, "ask") != 0) {
+        copyField(card->mode, sizeof(card->mode), "idle");
+    }
+    if (index + 1 == total) {
+        showCard(0);
+    }
+}
+
 void handleLine(char *line) {
+    if (strncmp(line, "CARD ", 5) == 0) {
+        applyCard(line + 5);
+        return;
+    }
     if (strncmp(line, "SHOW ", 5) == 0) {
+        deckCount = 0;
         if (strcmp(line, lastFrame) == 0) {
             return;
         }
@@ -191,7 +320,7 @@ void handleLine(char *line) {
 }
 
 void readSerial() {
-    static char buf[200];
+    static char buf[320];
     static size_t used = 0;
     while (Serial.available()) {
         char c = Serial.read();
@@ -229,30 +358,53 @@ void sendButton(const char *decision) {
     draw();
 }
 
+int16_t viewX(int16_t x, int16_t y) {
+    if (y > x && y > NATIVE_W) {
+        return y;
+    }
+    return x;
+}
+
+void finishGesture() {
+    int dx = lastX - originX;
+    uint32_t held = millis() - originMs;
+    if (deckCount > 1 && held < 900 && dx <= -50 && deckIndex + 1 < deckCount) {
+        showCard(deckIndex + 1);
+        return;
+    }
+    if (deckCount > 1 && held < 900 && dx >= 50 && deckIndex > 0) {
+        showCard(deckIndex - 1);
+        return;
+    }
+    if (held < 600 && dx > -40 && dx < 40) {
+        sendButton(lastX < VIEW_W / 2 ? "approve" : "deny");
+    }
+}
+
 void readTouch() {
     if (homePressed) {
         homePressed = false;
         sendButton("approve");
     }
-    // isPressed() drops the first pulse on the IRQ pin, so a tap never lands.
-    // Read the controller directly instead.
     if (!touchOnline) {
         return;
     }
     int16_t x[1];
     int16_t y[1];
     if (!touch.getPoint(x, y)) {
+        if (fingerDown) {
+            fingerDown = false;
+            finishGesture();
+        }
         return;
     }
-    int16_t vx = x[0];
-    int16_t vy = y[0];
-    // Portrait reports come back as x across 240 and y along 536.
-    if (vy > vx && vy > NATIVE_W) {
-        int16_t swap = vx;
-        vx = vy;
-        vy = swap;
+    int16_t vx = viewX(x[0], y[0]);
+    if (!fingerDown) {
+        fingerDown = true;
+        originX = vx;
+        originMs = millis();
     }
-    sendButton(vx < VIEW_W / 2 ? "approve" : "deny");
+    lastX = vx;
 }
 
 void setup() {

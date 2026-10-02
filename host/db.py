@@ -56,12 +56,30 @@ def conn():
         raw.close()
 
 
+def _migrate(raw):
+    tables = {row[0] for row in raw.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+    if "shelly" not in tables:
+        return
+    existing = {row[1] for row in raw.execute("PRAGMA table_info(shelly)")}
+    for name, typedef in (
+        ("temp_c", "REAL"),
+        ("humidity", "REAL"),
+        ("lux", "REAL"),
+        ("motion", "INTEGER"),
+        ("battery", "REAL"),
+        ("cloud_online", "INTEGER"),
+    ):
+        if name not in existing:
+            raw.execute(f"ALTER TABLE shelly ADD COLUMN {name} {typedef}")
+
+
 def init_db():
     path = Path(db_path())
     path.parent.mkdir(parents=True, exist_ok=True)
     raw = sqlite3.connect(path)
     try:
         raw.executescript(SCHEMA.read_text())
+        _migrate(raw)
         raw.commit()
     finally:
         raw.close()

@@ -32,6 +32,8 @@ def tier_for(action, c):
         return "approve"
     if kind in ("quarantine_client", "block_client", "unblock_client"):
         return "secure"
+    if kind == "acknowledge":
+        return "ack"
     return "reject"
 
 
@@ -56,7 +58,12 @@ def execute(action, c):
             raise ValueError(f"unknown shelly {params['device_id']}")
         if params.get("on") is False and row["never_switch_off"]:
             raise ValueError("never_switch_off")
-        return shelly.set_switch(row["ip"], int(params.get("channel", 0)), bool(params["on"]))
+        return shelly.set_switch_for(
+            params["device_id"],
+            row["ip"],
+            int(params.get("channel", 0)),
+            bool(params["on"]),
+        )
     raise ValueError(f"unknown action {kind}")
 
 
@@ -118,6 +125,11 @@ def process_decision(c, msg, now=None):
         "INSERT INTO decisions(proposal_id, ts, source, decision) VALUES(?,?,?,?)",
         (pid, db.now_iso(), "esp32", decision),
     )
+    action = json.loads(row["action"])
+    if action.get("type") == "acknowledge":
+        c.execute("UPDATE proposals SET status='executed' WHERE id=?", (pid,))
+        db.audit(c, "gateway", "acknowledged", {"id": pid, "decision": decision})
+        return "acked"
     if decision == "deny":
         db.audit(c, "gateway", "denied", {"id": pid})
         return "denied"

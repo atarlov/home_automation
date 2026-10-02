@@ -2,18 +2,24 @@
 
 A long-running agent for the home. It notices when you come back, turns on the light you want on, and says so on the T-Display-S3 AMOLED by the door. While you are out it keeps watching the network and the plugs. You do not start it for each visit.
 
-UniFi is how it knows you are home: your phone leaves Wi-Fi and joins again after a real absence. Shelly plugs are the lights and appliances. NVIDIA is the session that decides. The S3, plugged into the host, is the only screen it has. A tap on that screen is the answer when something is not obvious.
+UniFi is how it knows you are home: your phone leaves Wi-Fi and joins again after a real absence. 
 
-Comfort is immediate. The hall light is marked so it may turn on without a tap. The fridge is marked so it is never offered as something to switch off. A heater left on, or a client the house has not seen before, is a question on the display. Approve and deny are signed, expire, and are written to the audit log. The model does not hold the UniFi or Shelly credentials. It proposes. The gateway is the only code that changes the network.
+Shelly plugs are the lights and appliances. 
+
+NVIDIA is the session that decides. 
+
+The S3 display is the screen. 
 
 ## Devices and services
 
-| | What it is | What the agent uses it for |
-|---|---|---|
-| [UniFi](#unifi) | The home network console | Who is home, and later a block or a guest voucher |
-| [Shelly](#shelly) | The plugs and the lights | Turn the hall on, and ask before switching anything else |
-| [NVIDIA NIM](#nvidia-nim) | The model API | Decide what to say and what to propose |
-| [LilyGO T-Display-S3 AMOLED](#lilygo-t-display-s3-amoled) | The panel by the door | The face, the greeting, and your tap |
+
+|                                                           | What it is               | What the agent uses it for                               |
+| --------------------------------------------------------- | ------------------------ | -------------------------------------------------------- |
+| [UniFi](#unifi)                                           | The home network console | Who is home, and later a block or a guest voucher        |
+| [Shelly](#shelly)                                         | The plugs and the lights | Turn the hall on, and ask before switching anything else |
+| [NVIDIA NIM](#nvidia-nim)                                 | The model API            | Decide what to say and what to propose                   |
+| [LilyGO T-Display-S3 AMOLED](#lilygo-t-display-s3-amoled) | The panel by the door    | The face, the greeting, and your tap                     |
+
 
 How to fill in keys and device rows is under [Connect UniFi, Shelly, and NIM](#connect-unifi-shelly-and-nim).
 
@@ -26,12 +32,6 @@ The collector reads the active client list (`stat/sta`): name, VLAN, access poin
 Keys are created on the console under Settings → Control Plane → Integrations. The read key stays with the collector. The write key stays with the gateway.
 
 ### Shelly
-
-The account can hold plugs, climate sensors, and a motion sensor. The panel draws a matching picture on each card: a thermometer, a plug, or a small figure.
-
-| Plug | Climate | Motion |
-|---|---|---|
-| Switch and power | Temperature and humidity | Motion and light |
 
 Shelly plugs and relays switch a light or an appliance and report power. This project uses the [Shelly Cloud Control API](https://shelly-api-docs.shelly.cloud/cloud-control-api/) when `SHELLY_CLOUD_HOST` and `SHELLY_CLOUD_AUTH_KEY` are set. One `device/all_status` read covers every plug. Switching goes through `v2/devices/api/set/switch`. The cloud allows about one call per second. The collector polls every 30 seconds, so that limit is comfortable.
 
@@ -53,7 +53,7 @@ The face is a [LilyGO T-Display-S3 AMOLED](https://lilygo.cc/products/t-display-
 
 With nothing to say, the screen is a waiting face that blinks. A message sits to the right of a smaller face, at most four lines of eighteen ASCII characters. In a question, a tap on the left half approves and a tap on the right half denies. The host protocol is one line at a time: `SHOW` out, `BTN` back, `HELLO` when the board boots.
 
-`make display` builds that firmware with PlatformIO and flashes the board on `/dev/cu.usbmodem3101`. The agent then opens `/dev/tty.usbmodem3101` when that node exists, so the serial open does not reset the ESP32. `make face-idle`, `make face-greet`, and `make face-ask` drive the panel with no UniFi, Shelly, or NIM. `make mock` is the same screen in a browser. Moving the agent to a Raspberry Pi and the panel onto Wi-Fi is [docs/raspberry-pi.md](docs/raspberry-pi.md).
+`make display` builds that firmware with PlatformIO and flashes the board on `/dev/cu.usbmodem3101`. The agent then opens `/dev/tty.usbmodem3101` when that node exists, so the serial open does not reset the ESP32. `make face-idle`, `make face-greet`, and `make face-ask` drive the panel with no UniFi, Shelly, or NIM. `make mock` is the same screen in a browser. 
 
 ## What you see
 
@@ -62,7 +62,7 @@ The panel is 240×536, drawn landscape so words run along the long edge. With no
 Coming home:
 
 ```
-Welcome home
+Welcome home Assen
 Away 3h
 Hall light on
 ```
@@ -126,8 +126,10 @@ INSERT INTO people(id, name) VALUES(1, 'Assen');
 
 UPDATE devices
 SET person_id = 1, presence_device = 1, trusted = 1, friendly_name = 'Phone'
-WHERE hostname = 'iPhone';
+WHERE mac = 'aa:bb:cc:dd:ee:ff';
 ```
+
+
 
 ### Shelly
 
@@ -150,13 +152,15 @@ INSERT INTO shelly(device_id, name, ip, kind, comfort_auto, never_switch_off, id
 VALUES('c59b1b2de089', 'Fridge', '', 'switch', 0, 1, 40);
 ```
 
-| Column | Meaning |
-|---|---|
-| `device_id` | Device ID from the Shelly app. This is what the cloud API switches |
-| `ip` | LAN address. Leave empty when the cloud key is set |
-| `comfort_auto = 1` | May switch on when you arrive, with no tap. Use this for the hall light |
-| `never_switch_off = 1` | Never offered as something to turn off. Use this for the fridge |
-| `idle_w` | Power that counts as idle. A house-empty alert needs more than `max(20, 5 * idle_w)` watts |
+
+| Column                 | Meaning                                                                                    |
+| ---------------------- | ------------------------------------------------------------------------------------------ |
+| `device_id`            | Device ID from the Shelly app. This is what the cloud API switches                         |
+| `ip`                   | LAN address. Leave empty when the cloud key is set                                         |
+| `comfort_auto = 1`     | May switch on when you arrive, with no tap. Use this for the hall light                    |
+| `never_switch_off = 1` | Never offered as something to turn off. Use this for the fridge                            |
+| `idle_w`               | Power that counts as idle. A house-empty alert needs more than `max(20, 5 * idle_w)` watts |
+
 
 Leave both flags at `0` for a heater: the agent can ask before switching it off, and it will not turn on by itself.
 
@@ -178,6 +182,8 @@ Start the collector and the agent after the keys and the Shelly rows are in plac
 make collector
 make agent
 ```
+
+
 
 ## Architecture
 
@@ -223,16 +229,22 @@ flowchart TB
   Gateway -->|set switch| ShellyAPI
 ```
 
-| Piece | Job |
-|---|---|
-| UniFi Cloud Gateway Ultra | Who is on Wi-Fi. The iPhone is the presence device |
-| Shelly Cloud API | Temperature, humidity, motion, and plug power. Switching goes back through the same API |
-| `host/collector.py` | Polls UniFi and Shelly every 30 seconds and writes SQLite |
-| SQLite | Devices, sensor readings, events, notes, proposals, audit |
-| `host/agent.py` | Arrival greeting, suggestion cards, and NIM for everything else |
-| NVIDIA NIM | Nemotron at `integrate.api.nvidia.com`. Tools only: a text reply does not change the house |
-| `host/gateway.py` | Tiers, HMAC, expiry, and the only writes to UniFi and Shelly |
-| LilyGO T-Display-S3 AMOLED | Cards over USB. Swipe moves. A tap answers |
+
+
+
+| Piece                      | Job                                                                                        |
+| -------------------------- | ------------------------------------------------------------------------------------------ |
+| UniFi Cloud Gateway Ultra  | Who is on Wi-Fi. The iPhone is the presence device                                         |
+| Shelly Cloud API           | Temperature, humidity, motion, and plug power. Switching goes back through the same API    |
+| `host/collector.py`        | Polls UniFi and Shelly every 30 seconds and writes SQLite                                  |
+| SQLite                     | Devices, sensor readings, events, notes, proposals, audit                                  |
+| `host/agent.py`            | Arrival greeting, suggestion cards, and NIM for everything else                            |
+| NVIDIA NIM                 | Nemotron at `integrate.api.nvidia.com`. Tools only: a text reply does not change the house |
+| `host/gateway.py`          | Tiers, HMAC, expiry, and the only writes to UniFi and Shelly                               |
+| LilyGO T-Display-S3 AMOLED | Cards over USB. Swipe moves. A tap answers                                                 |
+
+
+
 
 ### Coming home
 
@@ -246,11 +258,18 @@ Every presence device is gone, and a plug that may be switched off is drawing re
 
 A client the house has not enrolled becomes `new_client`. The panel gets an Allow card: tap Allow to trust it, or Skip to leave it unknown. A block is still a separate secure proposal. UniFi does not change until that proposal is approved.
 
-| Tier | Runs when |
-|---|---|
-| comfort | Hall light on, as soon as NIM proposes it |
-| approve | Other Shelly changes and guest vouchers, after a tap |
-| secure | Block, unblock, quarantine, after a tap |
-| reject | Unknown actions, or switching off a `never_switch_off` device |
+
+| Tier    | Runs when                                                     |
+| ------- | ------------------------------------------------------------- |
+| comfort | Hall light on, as soon as NIM proposes it                     |
+| approve | Other Shelly changes and guest vouchers, after a tap          |
+| secure  | Block, unblock, quarantine, after a tap                       |
+| reject  | Unknown actions, or switching off a `never_switch_off` device |
+
 
 Mosquitto is the browser simulator, and a later S3 build that sits on Wi-Fi instead of this cable. The attached panel does not need it. `make face-idle`, `make face-greet`, and `make face-ask` drive that panel with no UniFi, Shelly, or NIM.
+
+Next steps: 
+
+- Moving the agent to a Raspberry Pi and the panel onto Wi-Fi  (docs/raspberry-pi.md)
+

@@ -33,7 +33,7 @@ def clean_button(value, default):
     return text or default
 
 
-def encode_card(index, count, mode, lines, proposal_id=None, button_a=None, button_b=None):
+def encode_card(index, count, mode, lines, proposal_id=None, button_a=None, button_b=None, pict="face"):
     shown = clean_lines(lines)
     while len(shown) < LINE_COUNT:
         shown.append("")
@@ -43,9 +43,10 @@ def encode_card(index, count, mode, lines, proposal_id=None, button_a=None, butt
         button_a = None
         button_b = None
     pid = clean_line(proposal_id or "-", 24) or "-"
+    picture = clean_line(pict or "face", 8) or "face"
     left = clean_button(button_a, "Ok") if mode == "ask" else "-"
     right = clean_button(button_b, "Ok") if mode == "ask" else "-"
-    body = "|".join([str(index), str(count), mode, pid, left, right, *shown])
+    body = "|".join([str(index), str(count), mode, pid, picture, left, right, *shown])
     return f"CARD {body}"
 
 

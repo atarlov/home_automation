@@ -284,3 +284,7 @@ Mosquitto is the browser simulator, and a later S3 build that sits on Wi-Fi inst
 
 - Moving the agent to a Raspberry Pi and the panel onto Wi-Fi (it has BT and WiFi)
 
+## License
+
+MIT, in [LICENSE](LICENSE). Copyright (c) 2026 Assen Tarlov. Use it, change it, build on it. A copy, or a substantial part of one, has to keep the copyright notice and the permission text.
+
